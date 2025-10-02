@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { PackagePlus, Crop, X, ChevronDown, Loader2, Upload, Image, Save, AlertCircle } from "lucide-react";
+import { PackagePlus, Crop, X, ChevronDown, Loader2, Upload, Image as ImageIcon, Save, AlertCircle } from "lucide-react";
 import Cropper from "react-easy-crop";
 import axiosInstance from "../utils/axiosInstance";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -13,7 +13,7 @@ import Badge from "./ui/Badge";
 import toast from "react-hot-toast";
 
 // ---------- Custom Select Component ----------
-function CustomSelect({ label, id, value, onChange, options, placeholder }) {
+function CustomSelect({ label, id, value, onChange, options, placeholder, error }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef(null);
 
@@ -45,7 +45,11 @@ function CustomSelect({ label, id, value, onChange, options, placeholder }) {
       <div
         id={id}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white flex justify-between items-center cursor-pointer"
+        className={`w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white flex justify-between items-center cursor-pointer ${
+          error 
+            ? 'border-red-500 dark:border-red-500' 
+            : 'border-gray-300 dark:border-gray-600'
+        }`}
       >
         <span className={!value ? "text-gray-400 dark:text-gray-500" : ""}>
           {options?.find((opt) => opt._id === value)?.name || placeholder}
@@ -211,12 +215,13 @@ function AddProductForm() {
        setCategoriesLoading(true);
     const getAllCategories = async ()=>{
       try {
-        const res = await axiosInstance.get("/categories")
-        console.log(res.data.data)
-        setCategories(res.data.data)
+        const res = await axiosInstance.get(`/admin/${tenantId}/categories`)
+        console.log('Categories response:', res.data)
+        setCategories(res.data.data || [])
        
       } catch (error) {
-        console.log(error)
+        console.log('Categories error:', error)
+        setCategories([])
       }
       finally{
         setCategoriesLoading(false)
@@ -229,18 +234,29 @@ function AddProductForm() {
 
     setCompaniesLoading(true);
     axiosInstance
-      .get("/companies")
-      .then((res) => setCompanies(res.data.data))
-      .catch((err) => console.error(err))
+      .get(`/admin/${tenantId}/companies`)
+      .then((res) => {
+        console.log('Companies response:', res.data);
+        setCompanies(res.data.data || []);
+      })
+      .catch((err) => {
+        console.error('Companies error:', err);
+        setCompanies([]);
+      })
       .finally(() => setCompaniesLoading(false));
-  }, []);
+  }, [tenantId]);
 
   // ---------- Form Handlers ----------
   const handleInputChange = (e) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
-    console.log(formData);
     
+    // Clear error when user starts typing/selecting
+    if (errors[id]) {
+      setErrors((prev) => ({ ...prev, [id]: null }));
+    }
+    
+    console.log(formData);
   };
 
   const handleTagInputKeyDown = (e) => {
@@ -271,6 +287,12 @@ function AddProductForm() {
     const files = Array.from(e.target.files).slice(0, 5);
     setFormData((prev) => ({ ...prev, images: files }));
     setCroppedImages(files.map(() => null));
+    
+    // Clear image error when user uploads files
+    if (errors.images && files.length > 0) {
+      setErrors((prev) => ({ ...prev, images: null }));
+    }
+    
     e.target.value = null;
   };
 
@@ -333,12 +355,12 @@ function AddProductForm() {
     try {
       let res;
       if (isEditMode) {
-        res = await axiosInstance.put(`/products/${productToEdit._id}`, payload, {
+        res = await axiosInstance.put(`/admin/${tenantId}/products/${productToEdit._id}`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         toast.success("Product updated successfully!");
       } else {
-        res = await axiosInstance.post("/products", payload, {
+        res = await axiosInstance.post(`/admin/${tenantId}/products`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         toast.success("Product added successfully!");
@@ -436,8 +458,17 @@ function AddProductForm() {
                   onChange={handleInputChange}
                   rows="2"
                   placeholder="Brief summary..."
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`w-full px-4 py-2 border rounded-lg resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.shortDescription 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 />
+                {errors.shortDescription && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.shortDescription}
+                  </p>
+                )}
               </div>
               <div>
                 <label
@@ -459,22 +490,38 @@ function AddProductForm() {
 
             {/* Category & Company */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <CustomSelect
-                label="Product Category"
-                id="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                options={categories}
-                placeholder="Select a category"
-              />
-              <CustomSelect
-                label="Product Company"
-                id="company"
-                value={formData.company}
-                onChange={handleInputChange}
-                options={companies}
-                placeholder="Select a company"
-              />
+              <div>
+                <CustomSelect
+                  label="Product Category"
+                  id="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  options={categories}
+                  placeholder="Select a category"
+                  error={errors.category}
+                />
+                {errors.category && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.category}
+                  </p>
+                )}
+              </div>
+              <div>
+                <CustomSelect
+                  label="Product Company"
+                  id="company"
+                  value={formData.company}
+                  onChange={handleInputChange}
+                  options={companies}
+                  placeholder="Select a company"
+                  error={errors.company}
+                />
+                {errors.company && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.company}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Tags */}
@@ -524,7 +571,11 @@ function AddProductForm() {
               <div className="flex items-center justify-center w-full">
                 <label
                   htmlFor="image-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors ${
+                    errors.images 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 >
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -544,6 +595,11 @@ function AddProductForm() {
                   />
                 </label>
               </div>
+              {errors.images && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.images}
+                </p>
+              )}
 
               {formData.images.length > 0 && (
                 <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -583,8 +639,17 @@ function AddProductForm() {
                   value={formData.currentPrice || ""}
                   onChange={handleInputChange}
                   placeholder="0"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.currentPrice 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 />
+                {errors.currentPrice && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.currentPrice}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -600,8 +665,17 @@ function AddProductForm() {
                   value={formData.salePrice || ""}
                   onChange={handleInputChange}
                   placeholder="0"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.salePrice 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 />
+                {errors.salePrice && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.salePrice}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -617,8 +691,17 @@ function AddProductForm() {
                   value={formData.inStock || ""}
                   onChange={handleInputChange}
                   placeholder="0"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className={`w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.inStock 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 />
+                {errors.inStock && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.inStock}
+                  </p>
+                )}
               </div>
             </div>
 

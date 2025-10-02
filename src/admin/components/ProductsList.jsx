@@ -26,8 +26,8 @@ function ProductsListAdmin() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('/products');
-      const data = response.data.message || [];
+      const response = await axiosInstance.get(`/admin/${tenantId}/products`);
+      const data = response.data.data || [];
       setProducts(data);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -37,8 +37,10 @@ function ProductsListAdmin() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (tenantId) {
+      fetchProducts();
+    }
+  }, [tenantId]);
 
   // Refresh products
   const handleRefresh = async () => {
@@ -46,6 +48,7 @@ function ProductsListAdmin() {
     await fetchProducts();
     setTimeout(() => setIsRefreshing(false), 500);
   };
+
 
   // Unique categories for dropdown
   const uniqueCategories = useMemo(() => {

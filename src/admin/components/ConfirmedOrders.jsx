@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Loader2, Package2 } from "lucide-react";
+import { useParams } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance"; // ✅ Use real API instance
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 
 export default function ConfirmedOrdersPage() {
+  const { tenantId } = useParams();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -18,7 +20,7 @@ export default function ConfirmedOrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await axiosInstance.get("/orders/confirmed");
+        const res = await axiosInstance.get(`/admin/${tenantId}/orders/confirmed`);
         console.log("Fetched confirmed orders:", res);
         setOrders(res.data?.data || []);
       } catch (err) {
