@@ -71,7 +71,7 @@ export const useProductsData = (filters = {}) => {
       const response = await apiService.getAllProducts(filters);
       
       // Handle different response structures
-      const productsData = response?.message || response?.data || response?.products || response;
+      const productsData = response?.data || response?.products || response;
       
       if (!Array.isArray(productsData)) {
         throw new Error('Invalid products data format');
@@ -124,7 +124,7 @@ export const useProductsByCategory = (categoryName) => {
       const response = await apiService.getProductsByCategory(categoryName);
       
       // Handle different response structures
-      const productsData = response?.message || response?.data || response?.products || response;
+      const productsData = response?.data || response?.products || response;
       
       if (!Array.isArray(productsData)) {
         throw new Error('Invalid products data format');
@@ -177,7 +177,7 @@ export const useProductsByCompany = (companyName) => {
       const response = await apiService.getProductsByCompany(companyName);
       
       // Handle different response structures
-      const productsData = response?.message || response?.data || response?.products || response;
+      const productsData = response?.data || response?.products || response;
       
       if (!Array.isArray(productsData)) {
         throw new Error('Invalid products data format');

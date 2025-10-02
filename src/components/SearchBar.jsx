@@ -51,14 +51,14 @@ const SearchBar = ({ className = '' }) => {
       
       try {
         const searchResponse = await apiService.searchProducts(searchQuery);
-        products = searchResponse?.message || searchResponse?.data || [];
+        products = searchResponse?.data || [];
         console.log('Search API response:', products.length, 'results');
       } catch (apiError) {
         console.log('Search API not available, falling back to client-side search');
         
         // Fallback: Get all products and filter client-side
         const response = await apiService.getAllProducts();
-        const allProducts = response?.message || response?.data || [];
+        const allProducts = response?.data || [];
         
         // Filter products based on search query
         products = allProducts.filter(product => {

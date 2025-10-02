@@ -29,7 +29,7 @@ export const useLazyProducts = (limit = 8, randomize = false) => {
 
     try {
       const response = await apiService.getAllProducts();
-      let productList = response?.message || response?.data || [];
+      let productList = response?.data || [];
       
       if (randomize) {
         productList = shuffleArray([...productList]);
@@ -70,7 +70,7 @@ export const useSaleProducts = (limit = 8) => {
 
     try {
       const response = await apiService.getAllProducts();
-      let productList = response?.message || response?.data || [];
+      let productList = response?.data || [];
       
       // Filter products on sale (salePrice < currentPrice)
       const saleProducts = productList.filter(p => 
@@ -108,7 +108,7 @@ export const useTrendingProducts = (limit = 8) => {
 
     try {
       const response = await apiService.getAllProducts();
-      let productList = response?.message || response?.data || [];
+      let productList = response?.data || [];
       
       // Sort by rating (descending) and take top products
       const sorted = [...productList].sort((a, b) => 
@@ -145,7 +145,7 @@ export const useProductsByCategory = (categoryName, limit = 8) => {
 
     try {
       const response = await apiService.getProductsByCategory(categoryName);
-      let productList = response?.message || response?.data || [];
+      let productList = response?.data || [];
       
       const limited = productList.slice(0, limit);
       setProducts(limited);
@@ -177,7 +177,7 @@ export const useProductsByCompany = (companyName, limit = 8) => {
 
     try {
       const response = await apiService.getProductsByCompany(companyName);
-      let productList = response?.message || response?.data || [];
+      let productList = response?.data || [];
       
       const limited = productList.slice(0, limit);
       setProducts(limited);

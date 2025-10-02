@@ -98,7 +98,7 @@ const Home = () => {
     try {
       const response = await apiService.getAllProducts();
       console.log('Trending Products Response:', response);
-      const products = response?.message || response?.data || [];
+      const products = response?.data || [];
       console.log('Trending Products Count:', products.length);
       // Sort by rating and return all products (will be limited by component)
       const sorted = products.sort((a, b) => (b?.rating || 0) - (a?.rating || 0));
@@ -113,7 +113,7 @@ const Home = () => {
     try {
       const response = await apiService.getAllProducts();
       console.log('Sale Products Response:', response);
-      const products = response?.message || response?.data || [];
+      const products = response?.data || [];
       // Filter sale items and randomize
       const saleItems = products.filter(p => p?.salePrice && p?.currentPrice && p.salePrice < p.currentPrice);
       console.log('Sale Products Count:', saleItems.length);
@@ -128,7 +128,7 @@ const Home = () => {
     try {
       const response = await apiService.getAllProducts();
       console.log('New Arrivals Response:', response);
-      const products = response?.message || response?.data || [];
+      const products = response?.data || [];
       console.log('New Arrivals Count:', products.length);
       // Randomize to simulate new arrivals
       return shuffleArray(products);
@@ -142,7 +142,7 @@ const Home = () => {
     try {
       const response = await apiService.getAllProducts();
       console.log('Featured Products Response:', response);
-      const products = response?.message || response?.data || [];
+      const products = response?.data || [];
       console.log('Featured Products Count:', products.length);
       // Get all products (will be limited by component)
       return products;
