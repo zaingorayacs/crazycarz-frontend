@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaShoppingCart, FaBolt, FaTruck, FaUndo, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { FaStar, FaShoppingCart, FaBolt, FaTruck, FaUndo, FaChevronLeft, FaChevronRight, FaRefresh, FaHeart, FaRegHeart } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../redux/slices/cartSlice';
@@ -8,42 +8,111 @@ import { toast } from 'react-hot-toast';
 
 import Layout from '../components/Layout';
 import SimpleProductCard from '../components/SimpleProductCard';
-import SkeletonLoader from '../components/SkeletonLoader';
+import EnhancedSkeletonLoader from '../components/EnhancedSkeletonLoader';
 import ErrorMessage from '../components/ErrorMessage';
+import EnhancedEmptyState from '../components/EnhancedEmptyState';
 import products from '../data/products';
-import { useProductData, useProductsData } from '../hooks/useProductData';
+import { useEnhancedProduct, useEnhancedProducts } from '../hooks/useEnhancedApi';
+import useCartWishlist from '../hooks/useCartWishlist';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useCartWishlist();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
-  const [useFallback, setUseFallback] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch product data from API
-  const { product: apiProduct, loading: apiLoading, error: apiError, refetch } = useProductData(id);
+  // Fetch product data from API with enhanced error handling
+  const { 
+    data: apiProduct, 
+    loading: apiLoading, 
+    error: apiError, 
+    refetch: refetchProduct,
+    retryAttempt,
+    isRetrying
+  } = useEnhancedProduct(id, {
+    onError: (error) => {
+      console.error('Failed to load product:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Product loaded successfully:', data?._id || data?.id);
+    }
+  });
   
   // Fetch related products
-  const { products: allProducts, loading: relatedLoading } = useProductsData();
+  const { 
+    data: allProductsData, 
+    loading: relatedLoading,
+    error: relatedError,
+    refetch: refetchRelated
+  } = useEnhancedProducts({}, {
+    onError: (error) => {
+      console.error('Failed to load related products:', error);
+    }
+  });
   
-  // Fallback to static data if API fails
-  const staticProduct = products.find(p => p.id === parseInt(id));
-  const product = (!apiError && apiProduct) || staticProduct;
-  const loading = apiLoading;
+  // Extract and validate product data
+  const product = useMemo(() => {
+    // Try API product first
+    if (apiProduct && !apiError) {
+      return apiProduct;
+    }
+    
+    // Fallback to static data
+    const staticProduct = products.find(p => p.id === parseInt(id));
+    if (staticProduct) {
+      return {
+        ...staticProduct,
+        isFallback: true
+      };
+    }
+    
+    return null;
+  }, [apiProduct, apiError, id]);
   
   // Get related products (exclude current product)
-  const relatedProducts = allProducts?.filter(p => p?._id !== id && p?.id !== parseInt(id)).slice(0, 4) || 
-                          products.filter(p => p.id !== parseInt(id)).slice(0, 4);
-  
-  // Handle API error with fallback
-  useEffect(() => {
-    if (apiError && !useFallback) {
-      console.warn('API failed, using static data:', apiError);
-      setUseFallback(true);
+  const relatedProducts = useMemo(() => {
+    const allProducts = allProductsData?.message || allProductsData?.data || [];
+    
+    if (allProducts.length > 0) {
+      return allProducts
+        .filter(p => p?._id !== id && p?.id !== parseInt(id))
+        .slice(0, 4);
     }
-  }, [apiError, useFallback]);
+    
+    // Fallback to static products
+    return products
+      .filter(p => p.id !== parseInt(id))
+      .slice(0, 4);
+  }, [allProductsData, id]);
+  
+  const loading = apiLoading;
+  const isInWishlistState = product ? isInWishlist(product._id || product.id) : false;
+  
+  // Handle manual refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchProduct(),
+        refetchRelated()
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchProduct, refetchRelated]);
+  
+  // Reset image selection when product changes
+  useEffect(() => {
+    setSelectedImage(0);
+    setQuantity(1);
+  }, [id, product]);
 
   // -----------------
   // Loading State
@@ -52,16 +121,7 @@ const ProductDetail = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <SkeletonLoader type="product-detail" />
-
-          <div className="mt-12">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-6 animate-pulse"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }, (_, i) => (
-                <SkeletonLoader key={i} type="product" />
-              ))}
-            </div>
-          </div>
+          <EnhancedSkeletonLoader type="product-detail-enhanced" />
         </div>
       </Layout>
     );
@@ -76,13 +136,22 @@ const ProductDetail = () => {
         <div className="container mx-auto px-4 py-8">
           <ErrorMessage
             title="Product Not Found"
-            message="The product you're looking for doesn't exist or has been removed."
-            onRetry={refetch}
+            message={`${apiError}${isRetrying ? ' Retrying...' : ''}`}
+            onRetry={handleRefresh}
+            showRetry={!isRetrying}
           />
           <div className="text-center mt-6">
-            <Link to="/" className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 inline-block">
-              Return to Home
-            </Link>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+              <Link to="/shop" className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 inline-block">
+                Browse Products
+              </Link>
+              <button 
+                onClick={() => navigate(-1)}
+                className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
       </Layout>
@@ -96,16 +165,15 @@ const ProductDetail = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <ErrorMessage
+          <EnhancedEmptyState
+            type="error"
             title="Product Not Found"
-            message="The product you're looking for doesn't exist or has been removed."
-            showRetry={false}
+            message="The product you're looking for doesn't exist or has been removed from our catalog."
+            actionText="Browse Products"
+            actionLink="/shop"
+            secondaryActionText="Go Back"
+            secondaryActionOnClick={() => navigate(-1)}
           />
-          <div className="text-center mt-6">
-            <Link to="/" className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 inline-block">
-              Return to Home
-            </Link>
-          </div>
         </div>
       </Layout>
     );
@@ -162,7 +230,10 @@ const ProductDetail = () => {
     if (value > 0) setQuantity(value);
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = useCallback(async () => {
+    if (!product) return;
+    
+    setIsAddingToCart(true);
     try {
       const productToAdd = {
         id: product?._id || product?.id,
@@ -173,13 +244,44 @@ const ProductDetail = () => {
         quantity,
         sku: product?.sku || `SKU-${product?._id || product?.id}`,
       };
+      
       dispatch(addToCart(productToAdd));
-      toast.success('Added to cart successfully!');
+      toast.success(`Added ${quantity} item(s) to cart!`);
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast.error('Failed to add product to cart');
+    } finally {
+      setIsAddingToCart(false);
     }
-  };
+  }, [product, discountedPrice, quantity, dispatch]);
+  
+  const handleToggleWishlist = useCallback(async () => {
+    if (!product) return;
+    
+    setIsTogglingWishlist(true);
+    try {
+      const productId = product._id || product.id;
+      
+      if (isInWishlistState) {
+        await removeFromWishlist(productId);
+        toast.success('Removed from wishlist');
+      } else {
+        const wishlistItem = {
+          id: productId,
+          name: product.name || product.title,
+          price: discountedPrice,
+          image: product.image || product.images?.[0],
+        };
+        await addToWishlist(wishlistItem);
+        toast.success('Added to wishlist!');
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      toast.error('Failed to update wishlist');
+    } finally {
+      setIsTogglingWishlist(false);
+    }
+  }, [product, isInWishlistState, addToWishlist, removeFromWishlist, discountedPrice]);
 
   // -----------------
   // Render
@@ -187,13 +289,43 @@ const ProductDetail = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
-          <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400">Home</Link>
-          <span className="mx-2">/</span>
-          <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400">Cars</Link>
-          <span className="mx-2">/</span>
-          <span className="text-gray-700 dark:text-gray-300">{product?.name || product?.title}</span>
+        {/* Header with breadcrumb and actions */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+            <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400">Home</Link>
+            <span className="mx-2">/</span>
+            <Link to="/shop" className="hover:text-blue-600 dark:hover:text-blue-400">Shop</Link>
+            <span className="mx-2">/</span>
+            <span className="text-gray-700 dark:text-gray-300 truncate max-w-xs">
+              {product?.name || product?.title}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {/* Fallback indicator */}
+            {product?.isFallback && (
+              <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
+                Limited Data
+              </span>
+            )}
+            
+            {/* Retry indicator */}
+            {retryAttempt > 0 && (
+              <span className="text-xs text-orange-500 dark:text-orange-400">
+                Retrying... ({retryAttempt})
+              </span>
+            )}
+            
+            {/* Refresh button */}
+            <button
+              onClick={handleRefresh}
+              disabled={loading || isRefreshing}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh product data"
+            >
+              <FaRefresh className={`${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -295,14 +427,53 @@ const ProductDetail = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}
-                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-md flex items-center justify-center gap-2 hover:bg-blue-700"
-                onClick={handleAddToCart}>
-                <FaShoppingCart /> Add to Cart
+              <motion.button 
+                whileHover={{ scale: 1.03 }} 
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-md flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+              >
+                {isAddingToCart ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <FaShoppingCart />
+                )}
+                {isAddingToCart ? 'Adding...' : 'Add to Cart'}
               </motion.button>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}
-                className="flex-1 bg-orange-500 text-white py-3 px-6 rounded-md flex items-center justify-center gap-2 hover:bg-orange-600">
+              
+              <motion.button 
+                whileHover={{ scale: 1.03 }} 
+                whileTap={{ scale: 0.98 }}
+                className="bg-orange-500 text-white py-3 px-6 rounded-md flex items-center justify-center gap-2 hover:bg-orange-600"
+                onClick={() => {
+                  handleAddToCart();
+                  setTimeout(() => navigate('/checkout'), 500);
+                }}
+                disabled={isAddingToCart}
+              >
                 <FaBolt /> Buy Now
+              </motion.button>
+              
+              <motion.button 
+                whileHover={{ scale: 1.03 }} 
+                whileTap={{ scale: 0.98 }}
+                className={`p-3 rounded-md border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isInWishlistState 
+                    ? 'border-red-500 bg-red-500 text-white hover:bg-red-600' 
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-500 hover:text-red-500'
+                }`}
+                onClick={handleToggleWishlist}
+                disabled={isTogglingWishlist}
+                title={isInWishlistState ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                {isTogglingWishlist ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+                ) : isInWishlistState ? (
+                  <FaHeart />
+                ) : (
+                  <FaRegHeart />
+                )}
               </motion.button>
             </div>
 
@@ -399,21 +570,46 @@ const ProductDetail = () => {
 
         {/* Related Products */}
         <div>
-          <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Related Products</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {relatedLoading ? (
-              Array.from({ length: 4 }, (_, i) => (
-                <SkeletonLoader key={i} type="product" />
-              ))
-            ) : (
-              relatedProducts?.map(rp => {
-                if (!rp) return null;
-                return (
-                  <SimpleProductCard key={rp?._id || rp?.id || Math.random()} product={rp} />
-                );
-              })
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Related Products</h2>
+            {relatedError && (
+              <span className="text-sm text-orange-600 dark:text-orange-400">
+                Limited recommendations
+              </span>
             )}
           </div>
+          
+          {relatedLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <EnhancedSkeletonLoader key={i} type="product" />
+              ))}
+            </div>
+          ) : relatedProducts?.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {relatedProducts.map(rp => {
+                if (!rp) return null;
+                return (
+                  <SimpleProductCard 
+                    key={rp?._id || rp?.id || Math.random()} 
+                    product={rp} 
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                No related products available
+              </p>
+              <Link 
+                to="/shop" 
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+              >
+                Browse All Products
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

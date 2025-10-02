@@ -1,22 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ProductCard from '../components/ProductCard';
-import SkeletonLoader from '../components/SkeletonLoader';
+import EnhancedSkeletonLoader from '../components/EnhancedSkeletonLoader';
 import ErrorMessage from '../components/ErrorMessage';
-import EmptyState from '../components/EmptyState';
-import { FaFilter, FaSort, FaTh, FaList, FaSearch, FaTimes } from 'react-icons/fa';
-import { useProducts, useCategories, useCompanies } from '../hooks/useApi';
+import EnhancedEmptyState from '../components/EnhancedEmptyState';
+import { FaFilter, FaSort, FaTh, FaList, FaSearch, FaTimes, FaSyncAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { useEnhancedProducts, useEnhancedCategories, useEnhancedCompanies } from '../hooks/useEnhancedApi';
 
 const ShopPage = () => {
   const [searchParams] = useSearchParams();
   
-  // Fetch data using hooks
-  const { data: productsData, loading: productsLoading, error: productsError } = useProducts();
-  const { data: categoriesData, loading: categoriesLoading } = useCategories();
-  const { data: companiesData, loading: companiesLoading } = useCompanies();
+  // Temporary direct API call to bypass Enhanced API issues
+  const [productsData, setProductsData] = useState(null);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState(null);
+  
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        console.log('🔍 Direct API call - Starting...');
+        setProductsLoading(true);
+        setProductsError(null);
+        
+        const result = await fetch('http://localhost:8000/api/v1/products');
+        const data = await result.json();
+        
+        console.log('🔍 Direct API call - Success:', data);
+        setProductsData(data);
+        setProductsLoading(false);
+      } catch (error) {
+        console.error('🔍 Direct API call - Error:', error);
+        setProductsError(error.message);
+        setProductsLoading(false);
+      }
+    };
+    
+    fetchProducts();
+  }, []);
+  
+  const refetchProducts = () => {
+    // Placeholder for now
+  };
+  const productsRetryAttempt = 0;
+  const productsRetrying = false;
+  
+  const { 
+    data: categoriesData, 
+    loading: categoriesLoading,
+    error: categoriesError,
+    refetch: refetchCategories
+  } = useEnhancedCategories();
+  
+  const { 
+    data: companiesData, 
+    loading: companiesLoading,
+    error: companiesError,
+    refetch: refetchCompanies
+  } = useEnhancedCompanies();
   
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // UI States
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -29,13 +73,59 @@ const ShopPage = () => {
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [sortBy, setSortBy] = useState('featured');
   
-  // Extract data
-  const products = productsData?.message || productsData?.data || [];
-  const categories = categoriesData?.data || [];
-  const companies = companiesData?.data || [];
-  const loading = productsLoading || categoriesLoading || companiesLoading;
-  const error = productsError;
+  // Extract data with safe handling
+  const products = useMemo(() => {
+    console.log('ShopPage - Raw productsData:', productsData);
+    
+    // The API returns: {statusCode: 200, data: Array, message: string, success: true}
+    // But sometimes we might get cached data with different structure
+    let extractedProducts = [];
+    
+    if (productsData?.data && Array.isArray(productsData.data)) {
+      extractedProducts = productsData.data;
+    } else if (productsData?.message && Array.isArray(productsData.message)) {
+      extractedProducts = productsData.message;
+    } else if (Array.isArray(productsData)) {
+      extractedProducts = productsData;
+    }
+    
+    console.log('ShopPage - Extracted products:', extractedProducts?.length || 0, 'products');
+    return extractedProducts;
+  }, [productsData]);
+  
+  const categories = useMemo(() => {
+    return categoriesData?.data || [];
+  }, [categoriesData]);
+  
+  const companies = useMemo(() => {
+    return companiesData?.data || [];
+  }, [companiesData]);
+  
+  // Only block on products loading - categories and companies are optional filters
+  const loading = productsLoading;
+  const hasError = productsError;
+  const primaryError = productsError; // Products are most critical
+  
+  // Track filter loading separately
+  const filtersLoading = categoriesLoading || companiesLoading;
+  const filtersError = categoriesError || companiesError;
 
+  // Handle manual refresh of all data
+  const handleRefreshAll = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchProducts(),
+        refetchCategories(),
+        refetchCompanies()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchProducts, refetchCategories, refetchCompanies]);
+  
   // Initialize filtered products and handle URL filters
   useEffect(() => {
     if (products.length > 0) {
@@ -62,77 +152,102 @@ const ShopPage = () => {
       }
       
       setFilteredProducts(filtered);
+    } else if (!loading && !hasError) {
+      // No products available
+      setFilteredProducts([]);
     }
-  }, [products, searchParams]);
+  }, [products, searchParams, loading, hasError]);
 
-  // Apply filters
-  useEffect(() => {
+  // Apply filters with memoization for performance
+  const applyFilters = useCallback(() => {
+    if (!products.length) {
+      setFilteredProducts([]);
+      return;
+    }
+    
     let filtered = [...products];
 
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(p =>
-        p?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p?.shortDescription?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+    try {
+      // Search filter
+      if (searchQuery?.trim()) {
+        const searchLower = searchQuery.toLowerCase().trim();
+        filtered = filtered.filter(p => {
+          const title = (p?.title || p?.name || '').toLowerCase();
+          const description = (p?.shortDescription || p?.description || '').toLowerCase();
+          const category = typeof p?.category === 'object' ? p?.category?.name?.toLowerCase() : (p?.category || '').toLowerCase();
+          const company = typeof p?.company === 'object' ? p?.company?.name?.toLowerCase() : (p?.company || '').toLowerCase();
+          
+          return title.includes(searchLower) || 
+                 description.includes(searchLower) ||
+                 category.includes(searchLower) ||
+                 company.includes(searchLower);
+        });
+      }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
+      // Category filter
+      if (selectedCategory !== 'all') {
+        filtered = filtered.filter(p => {
+          const category = typeof p?.category === 'object' ? p?.category?.name : p?.category;
+          return category === selectedCategory;
+        });
+      }
+
+      // Company filter
+      if (selectedCompany !== 'all') {
+        filtered = filtered.filter(p => {
+          const company = typeof p?.company === 'object' ? p?.company?.name : p?.company;
+          return company === selectedCompany;
+        });
+      }
+
+      // Price range filter
       filtered = filtered.filter(p => {
-        const category = typeof p?.category === 'object' ? p?.category?.name : p?.category;
-        return category === selectedCategory;
+        const price = p?.salePrice || p?.currentPrice || p?.price || 0;
+        return price >= priceRange[0] && price <= priceRange[1];
       });
+
+      // Sort
+      switch (sortBy) {
+        case 'price-low':
+          filtered.sort((a, b) => {
+            const priceA = a?.salePrice || a?.currentPrice || a?.price || 0;
+            const priceB = b?.salePrice || b?.currentPrice || b?.price || 0;
+            return priceA - priceB;
+          });
+          break;
+        case 'price-high':
+          filtered.sort((a, b) => {
+            const priceA = a?.salePrice || a?.currentPrice || a?.price || 0;
+            const priceB = b?.salePrice || b?.currentPrice || b?.price || 0;
+            return priceB - priceA;
+          });
+          break;
+        case 'rating':
+          filtered.sort((a, b) => (b?.rating || 0) - (a?.rating || 0));
+          break;
+        case 'name':
+          filtered.sort((a, b) => {
+            const nameA = a?.title || a?.name || '';
+            const nameB = b?.title || b?.name || '';
+            return nameA.localeCompare(nameB);
+          });
+          break;
+        default:
+          // Featured - keep original order
+          break;
+      }
+
+      setFilteredProducts(filtered);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      setFilteredProducts([]);
     }
-
-    // Company filter
-    if (selectedCompany !== 'all') {
-      filtered = filtered.filter(p => {
-        const company = typeof p?.company === 'object' ? p?.company?.name : p?.company;
-        return company === selectedCompany;
-      });
-    }
-
-    // Price range filter
-    filtered = filtered.filter(p => {
-      const price = p?.salePrice || p?.currentPrice || p?.price || 0;
-      return price >= priceRange[0] && price <= priceRange[1];
-    });
-
-    // Sort
-    switch (sortBy) {
-      case 'price-low':
-        filtered.sort((a, b) => {
-          const priceA = a?.salePrice || a?.currentPrice || a?.price || 0;
-          const priceB = b?.salePrice || b?.currentPrice || b?.price || 0;
-          return priceA - priceB;
-        });
-        break;
-      case 'price-high':
-        filtered.sort((a, b) => {
-          const priceA = a?.salePrice || a?.currentPrice || a?.price || 0;
-          const priceB = b?.salePrice || b?.currentPrice || b?.price || 0;
-          return priceB - priceA;
-        });
-        break;
-      case 'rating':
-        filtered.sort((a, b) => (b?.rating || 0) - (a?.rating || 0));
-        break;
-      case 'name':
-        filtered.sort((a, b) => {
-          const nameA = a?.title || a?.name || '';
-          const nameB = b?.title || b?.name || '';
-          return nameA.localeCompare(nameB);
-        });
-        break;
-      default:
-        // Featured - keep original order
-        break;
-    }
-
-    setFilteredProducts(filtered);
   }, [products, searchQuery, selectedCategory, selectedCompany, priceRange, sortBy]);
+  
+  // Apply filters when dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   // Clear all filters
   const clearFilters = () => {
@@ -143,33 +258,46 @@ const ShopPage = () => {
     setSortBy('featured');
   };
 
+  // Loading state
   if (loading) {
     return (
       <Layout>
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-8">
           <div className="container mx-auto px-4">
-            <div className="h-12 w-64 bg-gray-300 dark:bg-gray-700 rounded mb-8 animate-pulse"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }, (_, i) => (
-                <SkeletonLoader key={i} type="product" />
-              ))}
-            </div>
+            <EnhancedSkeletonLoader 
+              type="shop-grid" 
+              count={8}
+            />
           </div>
         </div>
       </Layout>
     );
   }
 
-  if (error) {
+  // Error state
+  if (hasError && !products.length) {
     return (
       <Layout>
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-8">
           <div className="container mx-auto px-4">
             <ErrorMessage
-              title="Error Loading Shop"
-              message={error}
-              onRetry={() => window.location.reload()}
+              title="Unable to Load Shop"
+              message={`${primaryError}${productsRetrying ? ' Retrying...' : ''}`}
+              onRetry={handleRefreshAll}
+              showRetry={!productsRetrying}
             />
+            
+            {/* Show partial error state if some data loaded */}
+            {(categoriesError || companiesError) && (
+              <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                <div className="flex items-center">
+                  <FaExclamationTriangle className="text-orange-500 mr-2" />
+                  <p className="text-orange-700 dark:text-orange-300 text-sm">
+                    Some filters may not be available due to loading errors.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Layout>
@@ -224,12 +352,34 @@ const ShopPage = () => {
                 Filters
               </button>
               
-              <p className="text-gray-600 dark:text-gray-400">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {filteredProducts.length}
-                </span>{' '}
-                {filteredProducts.length === 1 ? 'product' : 'products'} found
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-gray-600 dark:text-gray-400">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {filteredProducts.length}
+                  </span>{' '}
+                  {filteredProducts.length === 1 ? 'product' : 'products'} found
+                  {products.length > 0 && filteredProducts.length !== products.length && (
+                    <span className="text-sm ml-1">of {products.length} total</span>
+                  )}
+                </p>
+                
+                {/* Refresh button */}
+                <button
+                  onClick={handleRefreshAll}
+                  disabled={isRefreshing || loading}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh products"
+                >
+                  <FaSyncAlt className={`${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+                
+                {/* Retry indicator */}
+                {productsRetryAttempt > 0 && (
+                  <span className="text-xs text-orange-500 dark:text-orange-400">
+                    Retrying... ({productsRetryAttempt})
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Right side - Sort & View */}
@@ -347,31 +497,59 @@ const ShopPage = () => {
           )}
 
           {/* Products Grid/List */}
-          {filteredProducts.length === 0 ? (
-            <EmptyState
-              icon={FaSearch}
+          {!products.length && !loading ? (
+            <EnhancedEmptyState
+              type="products"
+              title="No products available"
+              message="We're currently updating our inventory. Please check back later or browse our categories."
+            />
+          ) : filteredProducts.length === 0 ? (
+            <EnhancedEmptyState
+              type="search"
               title="No products found"
-              message="Try adjusting your filters or search query"
+              message="We couldn't find any products matching your current filters. Try adjusting your search criteria."
               actionText="Clear Filters"
               actionOnClick={clearFilters}
+              secondaryActionText="Browse All Products"
+              secondaryActionOnClick={() => {
+                clearFilters();
+                setSearchQuery('');
+              }}
             />
           ) : (
-            <div
-              className={
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
-                  : 'flex flex-col gap-4'
-              }
-            >
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product?._id || product?.id}
-                  product={product}
-                  viewMode={viewMode}
-                  hideActions={true}
-                />
-              ))}
-            </div>
+            <>
+              {/* Error banner for partial failures */}
+              {(categoriesError || companiesError) && (
+                <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <div className="flex items-center">
+                    <FaExclamationTriangle className="text-yellow-500 mr-2" />
+                    <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                      Some filters may be limited due to loading issues. Products are still available.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <div
+                className={
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+                    : 'flex flex-col gap-4'
+                }
+              >
+                {filteredProducts.map((product) => {
+                  if (!product) return null;
+                  
+                  return (
+                    <ProductCard
+                      key={product?._id || product?.id || Math.random()}
+                      product={product}
+                      hideActions={true}
+                    />
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
