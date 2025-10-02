@@ -43,9 +43,8 @@ function OtpVerification() {
       
       dispatch(login({ accessToken, refreshToken, userData }));
 
-      // Redirect to tenant-specific dashboard
-      const tenantId = userData.tenantId || 'default';
-      navigate(`/admin/${tenantId}/dashboard`);
+      // Redirect to admin dashboard
+      navigate('/admin/dashboard');
     } catch (error) {
       console.error(error);
       setMessage(error.response?.data?.message || "OTP verification failed");

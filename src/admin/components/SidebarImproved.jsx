@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   LayoutDashboard, 
   Package, 
@@ -17,22 +18,19 @@ import {
   HelpCircle
 } from "lucide-react";
 import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 
 function SidebarImproved({ isOpen, onClose }) {
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed
   const [isHovered, setIsHovered] = useState(false);
-  const { tenantId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Determine if sidebar should be expanded
+  // Sidebar state
   const isExpanded = isHovered || !isCollapsed;
   
   const buildUrl = (path) => {
-    if (!tenantId) return path;
-    return `/admin/${tenantId}${path}`;
+    return `/admin${path}`;
   };
   
   const isActive = (path) => {

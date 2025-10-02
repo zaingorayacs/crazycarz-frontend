@@ -11,8 +11,7 @@ function AdminSignUp() {
     email: '',
     password: '',
     firstName: '',
-    lastName: '',
-    tenantId: ''
+    lastName: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -37,8 +36,7 @@ function AdminSignUp() {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
-        lastName: formData.lastName,
-        tenantId: formData.tenantId.toLowerCase().trim()
+        lastName: formData.lastName
       });
 
       setMessage('Admin registered successfully! Redirecting to login...');

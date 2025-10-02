@@ -16,13 +16,9 @@ function Sidebar() {
   // State to manage the visibility of the products dropdown
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   
-  // Get tenantId from URL params
-  const { tenantId } = useParams();
-  
-  // Helper function to build tenant-aware URLs
+  // Helper function to build admin URLs
   const buildUrl = (path) => {
-    if (!tenantId) return path;
-    return `/admin/${tenantId}${path}`;
+    return `/admin${path}`;
   };
 
   // Function to toggle the sidebar's minimized state for mobile.

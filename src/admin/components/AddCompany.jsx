@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Building2, Loader2, Upload, X } from 'lucide-react';
-import { useParams } from 'react-router-dom';
-import { createTenantApi } from '../utils/tenantApi';
+import axiosInstance from '../utils/axiosInstance';
 
 function AddCompanyForm() {
-  const { tenantId } = useParams();
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
   const [logo, setLogo] = useState(null);
@@ -52,8 +50,6 @@ function AddCompanyForm() {
       setSubmissionSuccess(false);
       setErrorMessage('');
 
-      const api = createTenantApi(tenantId);
-      
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('companyName', companyName);
@@ -62,7 +58,7 @@ function AddCompanyForm() {
         formData.append('logo', logo);
       }
 
-      const response = await api.post('/companies/', formData, {
+      const response = await axiosInstance.post('/admin/companies', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

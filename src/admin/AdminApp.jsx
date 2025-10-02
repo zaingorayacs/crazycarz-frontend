@@ -3,6 +3,9 @@ import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-do
 import { Provider } from 'react-redux';
 import store  from './store/store';
 
+// Import test auth utility for development
+import './utils/setTestAuth';
+
 // Admin Components
 import AdminSignin from './components/AdminSignin';
 import AdminSignup from './components/AdminSignup';
@@ -41,31 +44,12 @@ const AdminLayout = ({ children }) => {
   );
 };
 
-// Protected Route Component with Tenant Validation
+// Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { tenantId } = useParams();
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem('adminToken');
   
-  useEffect(() => {
-    if (isAuthenticated && tenantId) {
-      // Validate tenant access
-      const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
-      const userTenantId = adminData.tenantId;
-      
-      if (userTenantId && userTenantId !== tenantId) {
-        alert(`Access denied. You are not authorized to access tenant '${tenantId}'. Your tenant is '${userTenantId}'.`);
-        navigate(`/admin/${userTenantId}/dashboard`, { replace: true });
-      }
-    }
-  }, [isAuthenticated, tenantId, navigate]);
-  
   if (!isAuthenticated) {
-    return <Navigate to="/admin/signin" replace />;
-  }
-  
-  if (!tenantId) {
-    // If no tenantId in URL, redirect to signin
     return <Navigate to="/admin/signin" replace />;
   }
   
@@ -81,68 +65,68 @@ const AdminApp = () => {
         <Route path="/signup" element={<AdminSignup />} />
         <Route path="/verify-otp" element={<VerifyOTP />} />
         
-        {/* Tenant-Aware Protected Admin Routes */}
-        <Route path="/:tenantId/dashboard" element={
+        {/* Protected Admin Routes */}
+        <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/products" element={
+        <Route path="/products" element={
           <ProtectedRoute>
             <ProductsList />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/products/add" element={
+        <Route path="/products/add" element={
           <ProtectedRoute>
             <AddProductForm />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/products/:id" element={
+        <Route path="/products/:id" element={
           <ProtectedRoute>
             <ProductDetails />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/orders" element={
+        <Route path="/orders" element={
           <ProtectedRoute>
             <OrdersManagement />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/orders/confirmed" element={
+        <Route path="/orders/confirmed" element={
           <ProtectedRoute>
             <ConfirmedOrders />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/customers" element={
+        <Route path="/customers" element={
           <ProtectedRoute>
             <Customers />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/categories/add" element={
+        <Route path="/categories/add" element={
           <ProtectedRoute>
             <AddCategory />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/companies/add" element={
+        <Route path="/companies/add" element={
           <ProtectedRoute>
             <AddCompany />
           </ProtectedRoute>
         } />
         
-        <Route path="/:tenantId/settings" element={
+        <Route path="/settings" element={
           <ProtectedRoute>
             <AdminSettings />
           </ProtectedRoute>
         } />
         
-        {/* Default redirect - will be handled by signin */}
+        {/* Default redirect */}
         <Route path="/" element={<Navigate to="/admin/signin" replace />} />
         <Route path="*" element={<Navigate to="/admin/signin" replace />} />
       </Routes>

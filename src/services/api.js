@@ -13,20 +13,33 @@ class ApiService {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include', // Include cookies for authentication
       ...options,
     };
 
     try {
+      console.log(`🔄 API Request: ${config.method || 'GET'} ${url}`);
+      
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`❌ API Error ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
+      console.log(`✅ API Success: ${config.method || 'GET'} ${endpoint}`, data.success ? '✓' : '✗');
       return data;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('🚨 API Error Details:', {
+        endpoint,
+        method: config.method || 'GET',
+        baseURL: this.baseURL,
+        fullURL: url,
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }

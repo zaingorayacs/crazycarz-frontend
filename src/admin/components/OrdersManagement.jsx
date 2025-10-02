@@ -5,7 +5,6 @@ import Loader from './Loader';
 import axiosInstance from '../utils/axiosInstance';
 
 const OrderManagement = () => {
-  const { tenantId } = useParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -26,7 +25,7 @@ const OrderManagement = () => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const res = await axiosInstance.get(`/admin/${tenantId}/orders`);
+        const res = await axiosInstance.get('/admin/orders');
         console.log('Orders data:', res.data?.data); // Debug log
         console.log('First order:', res.data?.data[0]); // Debug first order
         setProducts(res.data?.data || []);
@@ -81,7 +80,7 @@ const OrderManagement = () => {
   // ✅ Individual status change
   const handleOrderStatusChange = async (id, newStatus) => {
     try {
-      const res = await axiosInstance.patch(`/admin/${tenantId}/orders/status`, {
+      const res = await axiosInstance.patch('/admin/orders/status', {
         orderId: id,
         orderStatus: newStatus,
       });
@@ -95,7 +94,7 @@ const OrderManagement = () => {
 
   const handlePaymentStatusChange = async (id, newStatus) => {
     try {
-      const res = await axiosInstance.patch(`/admin/${tenantId}/orders/status`, {
+      const res = await axiosInstance.patch('/admin/orders/status', {
         orderId: id,
         paymentStatus: newStatus,
       });
@@ -116,7 +115,7 @@ const OrderManagement = () => {
     try {
       await Promise.all(
         selectedOrders.map(id =>
-          axiosInstance.patch(`/admin/${tenantId}/orders/status`, {
+          axiosInstance.patch('/admin/orders/status', {
             orderId: id,
             ...(batchOrderStatus && { orderStatus: batchOrderStatus }),
             ...(batchPaymentStatus && { paymentStatus: batchPaymentStatus }),

@@ -20,13 +20,12 @@ function ProductsListAdmin() {
   const [itemsPerPage] = useState(10);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
-  const { tenantId } = useParams();
 
   // Fetch products from backend
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get(`/admin/${tenantId}/products`);
+      const response = await axiosInstance.get('/admin/products');
       const data = response.data.data || [];
       setProducts(data);
     } catch (error) {
@@ -37,10 +36,8 @@ function ProductsListAdmin() {
   };
 
   useEffect(() => {
-    if (tenantId) {
-      fetchProducts();
-    }
-  }, [tenantId]);
+    fetchProducts();
+  }, []);
 
   // Refresh products
   const handleRefresh = async () => {
@@ -158,7 +155,7 @@ function ProductsListAdmin() {
             variant="primary"
             size="sm"
             icon={Plus}
-            onClick={() => navigate(`/admin/${tenantId}/products/add`)}
+            onClick={() => navigate('/admin/products/add')}
           >
             Add Product
           </Button>
@@ -305,7 +302,7 @@ function ProductsListAdmin() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/admin/${tenantId}/products/${product._id}`);
+                          navigate(`/admin/products/${product._id}`);
                         }}
                         className="p-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                         title="View Details"
@@ -315,7 +312,7 @@ function ProductsListAdmin() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/admin/${tenantId}/products/${product._id}/edit`);
+                          navigate(`/admin/products/${product._id}/edit`);
                         }}
                         className="p-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                         title="Edit Product"
@@ -345,7 +342,7 @@ function ProductsListAdmin() {
                     variant="primary"
                     size="sm"
                     icon={Plus}
-                    onClick={() => navigate(`/admin/${tenantId}/products/add`)}
+                    onClick={() => navigate('/admin/products/add')}
                   >
                     Add Your First Product
                   </Button>

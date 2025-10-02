@@ -7,7 +7,6 @@ import autoTable from "jspdf-autotable";
 
 
 export default function ConfirmedOrdersPage() {
-  const { tenantId } = useParams();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -20,7 +19,7 @@ export default function ConfirmedOrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await axiosInstance.get(`/admin/${tenantId}/orders/confirmed`);
+        const res = await axiosInstance.get('/admin/orders/confirmed');
         console.log("Fetched confirmed orders:", res);
         setOrders(res.data?.data || []);
       } catch (err) {
@@ -261,8 +260,10 @@ const generatePDF = () => {
                         />
                       </td>
                       <td className='px-6 py-4 font-semibold text-gray-800 dark:text-gray-200'>{order.orderIdForCustomer}</td>
-                      <td className='px-6 py-4'>{order.userId?.firstName || "N/A"}</td>
-                      <td className='px-6 py-4'>{order.userId?.email || "N/A"}</td>
+                      <td className='px-6 py-4'>
+                        {order.shippingAddress?.firstName || order.userId?.firstName || "N/A"} {order.shippingAddress?.lastName || order.userId?.lastName || ""}
+                      </td>
+                      <td className='px-6 py-4'>{order.shippingAddress?.email || order.userId?.email || "N/A"}</td>
                       <td className='px-6 py-4'>{totalQty}</td>
                       <td className='px-6 py-4'>${totalPrice.toFixed(2)}</td>
                     </tr>

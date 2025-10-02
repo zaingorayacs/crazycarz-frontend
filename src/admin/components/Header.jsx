@@ -23,8 +23,6 @@ const Header = ({ onMenuClick }) => {
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
   const navigate = useNavigate();
-  const { tenantId } = useParams();
-  
   // Get admin data from localStorage
   const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
   const adminName = `${adminData.firstName || 'Admin'} ${adminData.lastName || ''}`.trim();
@@ -82,8 +80,7 @@ const Header = ({ onMenuClick }) => {
   };
   
   const buildUrl = (path) => {
-    if (!tenantId) return path;
-    return `/admin/${tenantId}${path}`;
+    return `/admin${path}`;
   };
   
   return (
@@ -103,25 +100,7 @@ const Header = ({ onMenuClick }) => {
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700/50 hover:border-primary-500/50 transition-all duration-200 cursor-pointer group">
             <Search size={16} className="text-gray-400 group-hover:text-primary-500 transition-colors" />
             <span className="text-sm text-gray-500 dark:text-gray-400">Quick search...</span>
-            <div className="flex items-center gap-1 ml-8">
-              <kbd className="px-1.5 py-0.5 text-xs bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600">⌘</kbd>
-              <kbd className="px-1.5 py-0.5 text-xs bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600">K</kbd>
-            </div>
           </div>
-          
-          {/* Tenant badge */}
-          {tenantId && (
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-primary-500/10 to-primary-600/10 rounded-xl border border-primary-500/20"
-            >
-              <Activity size={14} className="text-primary-500 animate-pulse" />
-              <span className="text-sm font-medium text-primary-700 dark:text-primary-400">
-                {tenantId}
-              </span>
-            </motion.div>
-          )}
         </div>
         
         {/* Right: Actions */}

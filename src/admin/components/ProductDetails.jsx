@@ -37,7 +37,7 @@ const mockProduct = {
 };
 
 function ProductDetails() {
-  const { id, tenantId } = useParams();
+  const { id } = useParams();
   const [product, setProduct] = useState();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -49,7 +49,7 @@ function ProductDetails() {
   useEffect(() => {
     const loadProduct = async () => {
       try {
-        const res = await axiosInstance.get(`/admin/${tenantId}/products/${id}`);
+        const res = await axiosInstance.get(`/admin/products/${id}`);
         const productDetails = res.data.data;
         setProduct(productDetails);
         console.log(productDetails);
@@ -96,10 +96,10 @@ function ProductDetails() {
   const handleDeleteProduct = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.delete(`/admin/${tenantId}/products/${id}`);
+      const res = await axiosInstance.delete(`/admin/products/${id}`);
       console.log(res);
       setIsDeleteModalOpen(false);
-      navigate("/products");
+      navigate("/admin/products");
     } catch (error) {
       console.log("error while deleting the product", error);
     } finally {

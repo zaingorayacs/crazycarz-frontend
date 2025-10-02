@@ -128,7 +128,6 @@ function AddProductForm() {
   const [errors, setErrors] = useState({});
   const location = useLocation();
   const navigate = useNavigate();
-  const { tenantId } = useParams();
   const productToEdit = location.state?.product || null;
  useEffect(() => {
   if (productToEdit) {
@@ -215,7 +214,7 @@ function AddProductForm() {
        setCategoriesLoading(true);
     const getAllCategories = async ()=>{
       try {
-        const res = await axiosInstance.get(`/admin/${tenantId}/categories`)
+        const res = await axiosInstance.get('/admin/categories')
         console.log('Categories response:', res.data)
         setCategories(res.data.data || [])
        
@@ -234,7 +233,7 @@ function AddProductForm() {
 
     setCompaniesLoading(true);
     axiosInstance
-      .get(`/admin/${tenantId}/companies`)
+      .get('/admin/companies')
       .then((res) => {
         console.log('Companies response:', res.data);
         setCompanies(res.data.data || []);
@@ -244,7 +243,7 @@ function AddProductForm() {
         setCompanies([]);
       })
       .finally(() => setCompaniesLoading(false));
-  }, [tenantId]);
+  }, []);
 
   // ---------- Form Handlers ----------
   const handleInputChange = (e) => {
@@ -355,12 +354,12 @@ function AddProductForm() {
     try {
       let res;
       if (isEditMode) {
-        res = await axiosInstance.put(`/admin/${tenantId}/products/${productToEdit._id}`, payload, {
+        res = await axiosInstance.put(`/admin/products/${productToEdit._id}`, payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         toast.success("Product updated successfully!");
       } else {
-        res = await axiosInstance.post(`/admin/${tenantId}/products`, payload, {
+        res = await axiosInstance.post('/admin/products', payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         toast.success("Product added successfully!");
@@ -368,7 +367,7 @@ function AddProductForm() {
       
       // Navigate back to products list after success
       setTimeout(() => {
-        navigate(`/admin/${tenantId}/products`);
+        navigate('/admin/products');
       }, 1500);
     } catch (err) {
       console.error(err);
@@ -410,7 +409,7 @@ function AddProductForm() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/admin/${tenantId}/products`)}
+            onClick={() => navigate('/admin/products')}
           >
             Cancel
           </Button>

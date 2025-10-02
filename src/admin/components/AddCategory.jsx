@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Tag, Loader2, Upload, X } from 'lucide-react';
-import { useParams } from 'react-router-dom';
-import { createTenantApi } from '../utils/tenantApi';
+import axiosInstance from '../utils/axiosInstance';
 
 function AddCategoryForm() {
-  const { tenantId } = useParams();
   const [categoryName, setCategoryName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
@@ -52,8 +50,6 @@ function AddCategoryForm() {
       setSubmissionSuccess(false);
       setErrorMessage('');
 
-      const api = createTenantApi(tenantId);
-      
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('categoryName', categoryName);
@@ -62,7 +58,7 @@ function AddCategoryForm() {
         formData.append('image', image);
       }
 
-      const response = await api.post('/categories/', formData, {
+      const response = await axiosInstance.post('/admin/categories', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
