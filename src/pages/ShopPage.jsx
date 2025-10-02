@@ -23,7 +23,7 @@ const ShopPage = () => {
         setProductsLoading(true);
         setProductsError(null);
         
-        const result = await fetch('http://localhost:8000/api/v1/products');
+        const result = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products`);
         const data = await result.json();
         
         console.log('🔍 Direct API call - Success:', data);
