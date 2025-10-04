@@ -306,10 +306,10 @@ const OrderManagement = () => {
                         />
                       </td>
                       <th scope='row' className='flex items-center px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
-                        <img className='w-10 h-10 rounded-full mr-3' src={order.items[0].productId.images[0]} alt={`${order.items[0].productId.title} image`} />
+                        <img className='w-10 h-10 rounded-full mr-3' src={order.items[0].productId?.images?.[0]} alt={`${order.items[0].productId?.title} image`} />
                         <div>
-                          <div className='text-base font-semibold'>{order.items[0].productId.title}</div>
-                          <div className='font-normal text-gray-500 dark:text-gray-400'>{order.items[0].productId.shortDescription}</div>
+                          <div className='text-base font-semibold'>{order.items[0].productId?.title}</div>
+                          <div className='font-normal text-gray-500 dark:text-gray-400'>{order.items[0].productId?.shortDescription}</div>
                         </div>
                       </th>
                       <td className='px-6 py-4'>
@@ -334,11 +334,11 @@ const OrderManagement = () => {
                       <td className='px-6 py-4'>
                         {order.shippingAddress?.email || order.userId?.email || "N/A"}
                       </td>
-                      <td className='px-6 py-4'>${order.items[0].productId.currentPrice}</td>
+                      <td className='px-6 py-4'>${order.items[0].productId?.currentPrice}</td>
                       <td className='px-6 py-4'>
                         <div className='flex items-center'>
-                          <div className={`h-2.5 w-2.5 rounded-full ${order.items[0].productId.inStock > 0 ? 'bg-green-500' : 'bg-red-500'} me-2`}></div>
-                          {order.items[0].productId.inStock > 0 ? 'Available' : 'Out of Stock'} ({order.items[0].productId.inStock})
+                          <div className={`h-2.5 w-2.5 rounded-full ${order.items[0].productId?.inStock > 0 ? 'bg-green-500' : 'bg-red-500'} me-2`}></div>
+                          {order.items[0].inStock > 0 ? 'Available' : 'Out of Stock'} ({order.items[0].productId?.inStock})
                         </div>
                       </td>
                       <td className='px-6 py-4'>{totalQuantity}</td>
